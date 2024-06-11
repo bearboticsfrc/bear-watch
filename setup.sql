@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS logins (
     login_id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INT,
-    login_time TIMESTAMP DEFAULT (strftime('%s', 'now')),
+    login_time TIMESTAMP DEFAULT (unixepoch()),
     logout_time TIMESTAMP NULL,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
