@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from re import compile
@@ -30,12 +32,10 @@ class LoggedInUser(UserException):
 class User:
     user_id: int
     name: str
-    login_time: datetime
+    login_time: float
 
     def from_row(row: asqlite.Row) -> User:
-        return User(row["user_id"], 
-                    row["username"], 
-                    datetime.fromtimestamp(int(row["login_time"])))
+        return User(row["user_id"],  row["username"], row["login_time"])
 
 class BearWatch:
     _ID_REGEX = compile(r"^\d{10}$")
@@ -51,13 +51,13 @@ class BearWatch:
                 await cursor.executescript(fp.read())
 
             await self.connection.commit()
-
             await cursor.execute(
                 "SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logout_time IS NULL;")
+            
             current_users = await cursor.fetchall()
 
         self.current_users = {str(row["user_id"]): User.from_row(row) for row in current_users}
-        self.task = asyncio.create_task(self.logout_task())
+        self.task = asyncio.create_task(self.logout_task(), name="Bear-Watch Force Logout")
 
         return self
 
@@ -69,9 +69,30 @@ class BearWatch:
 
         if self.current_users:
             print(
-                "\n".join(f"{user.name} - {user.login_time.strftime('%I:%M %p')}" 
+                "\n".join(f"{user.name} ({user.user_id}) - " \
+                          f"{datetime.fromtimestamp(user.login_time).strftime('%I:%M %p')}" 
                           for _, user in self.current_users.items()),
                 end="\n" * 2)
+
+    def _compute_timedelta(self) -> float:
+        dt = datetime.now().replace(hour=FORCE_LOGOUT_HOUR, minute=0, second=0)
+
+        if datetime.now().hour >= FORCE_LOGOUT_HOUR:
+            dt += datetime.timedelta(days=1)
+
+        return (dt - datetime.now()).total_seconds()
+
+    async def logout_task(self) -> None:
+        while True:
+            await asyncio.sleep(self._compute_timedelta())
+            await self.logout("*")
+
+    async def get_username(self, user_id: str) -> str | None:
+        async with self.connection.cursor() as cursor:
+            await cursor.execute("SELECT * FROM users WHERE user_id = ?", user_id)
+            row = await cursor.fetchone()
+
+            return row["username"] if row else None
 
     async def create(self, user_id: str, *, first: bool = True) -> None:
         if first:
@@ -100,25 +121,17 @@ class BearWatch:
 
         print(f"\nWelcome, {name}! Please re-enter your ID...")
 
-
-    async def get_username(self, user_id: str) -> None:
-        async with self.connection.cursor() as cursor:
-            await cursor.execute("SELECT * FROM users WHERE user_id = ?", user_id)
-            row = await cursor.fetchone()
-
-            return row["username"] if row else None
-
     async def logout(self, user_id: str) -> None:
         if user_id == "*":
-            statement = ("""UPDATE logins SET logout_time = strftime('%s', 'now') WHERE logout_time IS NULL;""",)
+            statement = ("UPDATE logins SET logout_time = ? WHERE logout_time IS NULL;", time.time())
         else:
             statement = ("""UPDATE logins
-                            SET logout_time = strftime('%s', 'now')
+                            SET logout_time = ?
                             WHERE login_id = (
                                 SELECT MAX(login_id)
                                 FROM logins
                                 WHERE user_id = ? AND logout_time IS NULL
-                            );""", user_id)
+                            );""", (time.time(), user_id))
 
         async with self.connection.cursor() as cursor:
             await cursor.execute(*statement)
@@ -137,40 +150,21 @@ class BearWatch:
                 raise UnknownUser
             
             await cursor.execute(
-                """SELECT * FROM logins WHERE user_id = ? AND logout_time IS NULL;""", user_id)
+                "SELECT * FROM logins WHERE user_id = ? AND logout_time IS NULL;", user_id)
             login = await cursor.fetchone()
             
             if login is not None:
                 raise LoggedInUser(username=username)
+            else:
+                user = User(user_id, username, time.time())
 
-            await cursor.execute("INSERT INTO logins (user_id) VALUES(?);", user_id)
             await cursor.execute(
-                "SELECT * FROM logins, users WHERE users.user_id = logins.user_id AND users.user_id = (?);",user_id)
-
+                "INSERT INTO logins (user_id, login_time) VALUES(?, ?);", user.user_id, user.login_time)
             await self.connection.commit()
-            user = await cursor.fetchone()
 
-        self.current_users[user_id] = User.from_row(user)
-        
+        self.current_users[user_id] = user
+
         return username
-
-    def _compute_timedelta(self, dt: datetime) -> float:
-        if dt.tzinfo is None:
-            dt = dt.astimezone()
-
-        now = datetime.now(timezone.utc)
-        
-        return max((dt - now).total_seconds(), 0)
-
-    async def logout_task(self) -> None:
-        while True:
-            when = datetime.now().replace(hour=FORCE_LOGOUT_HOUR, minute=0, second=0)
-
-            if datetime.now().hour >= FORCE_LOGOUT_HOUR:
-                when += datetime.timedelta(days=1)
-
-            await asyncio.sleep(self._compute_timedelta(when))
-            await self.logout("*")
 
     async def run(self) -> None:
         while True:
@@ -195,6 +189,10 @@ class BearWatch:
             except LoggedInUser as exc:
                 await self.logout(user_id)
                 print(f"Goodbyte, {exc.username}!")
+            except Exception as exc:
+                with open("traceback.txt", "w") as fp:
+                    traceback.print_exception(exc, file=fp)
+                raise
             else:
                 print(f"Welcome, {username}!")
 
