@@ -1,0 +1,18 @@
+[Unit]
+Description=Bear Watch Service
+After=network.target
+
+StartLimitIntervalSec=10
+
+[Service]
+Type=simple
+
+ExecStart=/home/pi/bear-watch/run.sh
+WorkingDirectory=/home/pi/bear-watch
+RestartSec=3
+
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

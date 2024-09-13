@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id INT PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
-    role VARCHAR(100) NOT NULL
+    username TEXT NOT NULL,
+    role TEXT NOT NULL,
+    mac TEXT NULL
 );
 
 CREATE TABLE IF NOT EXISTS logins (

@@ -4,12 +4,12 @@ A minimalistic tool used by Bearbotics to track the time spent by students and m
 # Running
 Install the necessary requirements:
 ```
-python -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 And run:
 ```
-python .
+python3 .
 ```
 
 # TODO
