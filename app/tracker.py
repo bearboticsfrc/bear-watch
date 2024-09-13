@@ -12,7 +12,6 @@ from config import DEBOUNCE_SECONDS, SCAN_INTERVAL, SUBNETS
 
 if TYPE_CHECKING:
     from aiohttp import web
-    from watcher import BearWatch
 
 class BearTracker:
     _MAC_REGEX = re.compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})")
@@ -57,11 +56,12 @@ class BearTracker:
                 user = NetworkUser.from_row(row)
 
                 if row["logout_time"] is None:
-                    self.logger.debug("Adding current user to cache: %s", user)
+                    self.logger.debug("Adding user to current users cache: %s", user.name)
 
                     user.set_last_seen(row["login_time"])
                     self._current_users[user.mac] = user
-
+                
+                self.logger.debug("Adding user to known users cache: %s", user.name)
                 self._known_users[user.mac] = user
 
         return self

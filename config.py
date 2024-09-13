@@ -1,4 +1,4 @@
-LOGGING_LEVEL = "error" # Logging level
+LOGGING_LEVEL = "info" # Logging level
 
 DATABASE = "users.db" # file which should be used as the sqlite3 database.
 
