@@ -23,7 +23,7 @@ class BearWatch:
         
     def setup_logging(self) -> None:
         handler = logging.FileHandler("logs/watcher.log")
-        handler.setLevel(logging.DEBUG)
+        handler.setLevel(LOGGING_LEVEL)
 
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)

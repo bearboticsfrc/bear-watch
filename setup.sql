@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-    user_id INT PRIMARY KEY,
+    user_id TEXT PRIMARY KEY,
     username TEXT NOT NULL,
     role TEXT NOT NULL,
     mac TEXT NULL

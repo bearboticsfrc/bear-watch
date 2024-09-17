@@ -8,7 +8,7 @@ import time
 from typing import TYPE_CHECKING
 
 from app.utils import LoggedInUser, NetworkUser, NmapScanError
-from config import DEBOUNCE_SECONDS, SCAN_INTERVAL, SUBNETS
+from config import *
 
 if TYPE_CHECKING:
     from aiohttp import web
@@ -38,7 +38,7 @@ class BearTracker:
 
     def setup_logging(self) -> None:
         handler = logging.FileHandler("logs/tracker.log")
-        handler.setLevel(logging.DEBUG)
+        handler.setLevel(LOGGING_LEVEL)
 
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
@@ -132,7 +132,7 @@ class BearTracker:
         try:
             await self.app["watcher"].login(user)
         except LoggedInUser:
-            self.logger.warn(
+            self.logger.warning(
                     "Tried to login already logged in user: %s (%s) - %s. Cache may be stale", 
                     user.name, user.user_id, user.mac)
         
@@ -147,7 +147,7 @@ class BearTracker:
             except TimeoutError:
                 continue
             except Exception as exc:
-                self.logger.error("Nmap scan raised uncaught exception: %s", exc)
+                self.logger.exception("Nmap scan raised exception")
 
             if not devices:
                 self.logger.debug("Found no alive devices on subnets: %s", ", ".join(SUBNETS))
@@ -166,7 +166,7 @@ class BearTracker:
 
             login_tasks = [
                 asyncio.ensure_future(self._login(user))
-                for user in (found_users - set(self._current_users.values()))
+                for user in ({user.mac for user in found_users} - set(self._current_users))
             ]
 
             logout_tasks = [
@@ -175,5 +175,7 @@ class BearTracker:
                 if user not in found_users and (time.time() - user.last_seen) > DEBOUNCE_SECONDS
             ]
 
-            await asyncio.gather(*login_tasks, *logout_tasks)
-    
+            try:
+                await asyncio.gather(*login_tasks, *logout_tasks, return_exceptions=True)
+            except Exception as exc:
+                self.logger.exception("Exception encountered during login/logout tasks.", exc)
