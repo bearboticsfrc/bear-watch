@@ -14,7 +14,7 @@ from config import DATABASE, LOGGING_LEVEL
 LOGGER = logging.getLogger("bearwatch.main")
 
 def setup_logging() -> None:
-        level = getattr(logging, LOGGING_LEVEL.upper(), logging.ERROR)
+        level = getattr(logging, LOGGING_LEVEL.upper())
 
         handler = logging.FileHandler("logs/main.log")
         handler.setLevel(level)

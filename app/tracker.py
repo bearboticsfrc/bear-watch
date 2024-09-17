@@ -37,8 +37,10 @@ class BearTracker:
                 in self._current_users.items()}
 
     def setup_logging(self) -> None:
+        level = getattr(logging, LOGGING_LEVEL.upper())
+
         handler = logging.FileHandler("logs/tracker.log")
-        handler.setLevel(LOGGING_LEVEL)
+        handler.setLevel(level)
 
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
