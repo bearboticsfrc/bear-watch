@@ -32,7 +32,7 @@ class BearWeb:
 
         # A user id isn't needed in this configuration, but I'm keeping it for future purposes
         user = NetworkUser(
-                user_id=b64encode(form["username"]),
+                user_id=b64encode(form["username"].encode()),
                 name=form["username"], 
                 role=form["role"], 
                 mac=form["mac"].replace("-", ":").upper())
