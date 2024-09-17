@@ -1,4 +1,4 @@
-from base64 import encode
+from base64 import b64encode
 
 from aiohttp import web
 
@@ -32,7 +32,7 @@ class BearWeb:
 
         # A user id isn't needed in this configuration, but I'm keeping it for future purposes
         user = NetworkUser(
-                user_id=encode(form["username"]),
+                user_id=b64encode(form["username"]),
                 name=form["username"], 
                 role=form["role"], 
                 mac=form["mac"].replace("-", ":").upper())
