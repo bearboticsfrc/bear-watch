@@ -159,6 +159,9 @@ class BearTracker:
 
             found_users = {user for device in devices if (user := self._known_users.get(device))}
 
+            print(f"Found users -> {found_users}")
+            print(f"Login users -> {set(self._current_users) - found_users}")
+
             if not found_users:
                 self.logger.debug("Found no known devices.")
 
