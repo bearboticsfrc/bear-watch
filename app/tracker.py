@@ -168,7 +168,7 @@ class BearTracker:
 
             login_tasks = [
                 asyncio.ensure_future(self._login(user))
-                for user in ({user.mac for user in found_users} - set(self._known_users))
+                for user in set(self._known_users) - ({user.mac for user in found_users})
             ]
 
             logout_tasks = [

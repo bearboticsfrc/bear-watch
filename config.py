@@ -4,7 +4,7 @@ DATABASE = "users.db" # file which should be used as the sqlite3 database.
 
 FORCE_LOGOUT_HOUR = 22 # At what hour should we force logout all users (24-hour).
 
-SUBNETS = ["192.168.4.*", "192.168.5.*", "192.168.6.*", "192.168.7.*"] # A list of networks in a notation recognized by Nmap to scan for active devices.
+SUBNETS = ["192.168.4.*", "192.168.5.*", "192.168.6.*"] # A list of networks in a notation recognized by Nmap to scan for active devices.
 
 SCAN_INTERVAL = 60 # How often to scan the network for users.
 
