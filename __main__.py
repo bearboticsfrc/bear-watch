@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 
 import asqlite
 from aiohttp import web
@@ -27,7 +28,7 @@ def setup_logging() -> None:
 
 async def startup_hook(app: web.Application) -> None:
     LOGGER.debug("Connecting to database: %s", DATABASE)
-    app["connection"] = await asqlite.connect(DATABASE)
+    app["connection"] = await asqlite.connect(Path(DATABASE).resolve())
 
     LOGGER.info("Initalizing BearWatch")
     async with BearWatch(app=app) as watcher:

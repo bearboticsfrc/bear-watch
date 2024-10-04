@@ -58,12 +58,12 @@ class BearTracker:
                 user = NetworkUser.from_row(row)
 
                 if row["logout_time"] is None:
-                    self.logger.debug("Adding user to current users cache: %s", user.name)
+                    self.logger.debug("Adding '%s' to current users cache", user.name)
 
                     user.set_last_seen(row["login_time"])
                     self._current_users[user.mac] = user
                 
-                self.logger.debug("Adding user to known users cache: %s", user.name)
+                self.logger.debug("Adding '%s' to known users cache", user.name)
                 self._known_users[user.mac] = user
 
         return self
@@ -92,7 +92,7 @@ class BearTracker:
         )
 
         try:
-            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=60)
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=120)
         except TimeoutError:
             self.logger.error("Nmap scan timed out. Terminating.")
             process.terminate()
@@ -154,25 +154,24 @@ class BearTracker:
             if not devices:
                 self.logger.debug("Found no alive devices on subnets: %s", ", ".join(SUBNETS))
                 continue
-            else:
-                self.logger.debug("Found devices: %s", ", ".join(devices))
 
             found_users = {user for device in devices if (user := self._known_users.get(device))}
 
             if not found_users:
                 self.logger.debug("Found no known devices.")
+            else:
+                self.logger.debug("Recognized users: %s", ', '.join((user.name for user in found_users)))
 
             for user in found_users:
-                self.logger.debug("Resetting last seen time of: %s", user.mac)
                 user.set_last_seen(time.time())
 
             login_tasks = [
-                asyncio.ensure_future(self._login(user))
-                for user in set(self._known_users) - ({user.mac for user in found_users})
+                asyncio.ensure_future(self._login(self._known_users[user]))
+                for user in set(self._known_users) - {user.mac for user in found_users}
             ]
 
             logout_tasks = [
-                asyncio.ensure_future(self._logout(user))
+                asyncio.ensure_future(self._logout(self._current_users[user]))
                 for user in self._current_users.values()
                 if user not in found_users and (time.time() - user.last_seen) > DEBOUNCE_SECONDS
             ]
