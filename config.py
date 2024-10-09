@@ -8,4 +8,4 @@ SUBNETS = ["192.168.4.*", "192.168.5.*", "192.168.6.*"] # A list of networks in 
 
 SCAN_INTERVAL = 60 # How often to scan the network for users.
 
-DEBOUNCE_SECONDS = SCAN_INTERVAL * 30 # Time threshold to debounce network absence before logging out users.
+DEBOUNCE_SECONDS = SCAN_INTERVAL * 5 # Time threshold to debounce network absence before logging out users.

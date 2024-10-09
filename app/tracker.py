@@ -19,22 +19,22 @@ class BearTracker:
     def __init__(self, app: web.Application) -> None:
         self.app = app
 
-        self._known_users: dict[str, NetworkUser] = {}
-        self._current_users: dict[str, NetworkUser] = {}
+        self._all_users: dict[str, NetworkUser] = {}
+        self._logged_in_users: dict[str, NetworkUser] = {}
 
         self.setup_logging()
 
     @property
-    def known_users(self) -> dict[str, dict]:
+    def all_users(self) -> dict[str, dict]:
         return {mac: dataclasses.asdict(user) 
                 for mac, user 
-                in self._known_users.items()}
+                in self._all_users.items()}
 
     @property
-    def current_users(self) -> dict[str, dict]:
+    def logged_in_users(self) -> dict[str, dict]:
         return {mac: dataclasses.asdict(user) 
                 for mac, user 
-                in self._current_users.items()}
+                in self._logged_in_users.items()}
 
     def setup_logging(self) -> None:
         level = getattr(logging, LOGGING_LEVEL.upper())
@@ -49,6 +49,9 @@ class BearTracker:
         self.logger.addHandler(handler)
     
     async def __aenter__(self) -> BearTracker:
+        await self._populate_all_users()
+        await self._populate_logged_in_users()
+
         async with self.app["connection"].cursor() as cursor:
             await cursor.execute("SELECT * FROM logins, users WHERE logins.user_id = users.user_id;")
 
@@ -61,21 +64,38 @@ class BearTracker:
                     self.logger.debug("Adding '%s' to current users cache", user.name)
 
                     user.set_last_seen(row["login_time"])
-                    self._current_users[user.mac] = user
+                    self._logged_in_users[user.mac] = user
                 
                 self.logger.debug("Adding '%s' to known users cache", user.name)
-                self._known_users[user.mac] = user
+                self._all_users[user.mac] = user
 
         return self
 
     async def __aexit__(self, *_) -> None:
         pass
 
+    async def _populate_all_users(self) -> None:
+        async with self.app["connection"].cursor() as cursor:
+            await cursor.execute("SELECT * FROM users;")
+            
+            for row in (await cursor.fetchall()):
+                user = NetworkUser.from_row(row)
+                self._all_users[user.mac] = user
+
+    async def _populate_all_users(self) -> None:
+        async with self.app["connection"].cursor() as cursor:
+            await cursor.execute("SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logins.mac IS NULL;")
+            
+            for row in (await cursor.fetchall()):
+                user = NetworkUser.from_row(row)
+                self._logged_in_users[user.mac] = user
+
+
     def add_user(self, user: NetworkUser) -> None:
         """Add a user's mac address to the registry"""
         self.logger.debug("Adding user to cache: %s", user)
         
-        self._known_users[user.mac] = user
+        self._all_users[user.mac] = user
 
     async def _scan_subnets(self, subnets: list[str]) -> list[str]:
         """Scans provided subnets and returns the MAC addresses of all active devices. 
@@ -117,7 +137,7 @@ class BearTracker:
         """
         self.logger.debug("Logging out user %s (%s) - %s", user.name, user.user_id, user.mac)
 
-        self._current_users.pop(user.mac, None)
+        self._logged_in_users.pop(user.mac, None)
         await self.app["watcher"].logout(user)
 
     async def _login(self, user: NetworkUser) -> None:
@@ -129,7 +149,7 @@ class BearTracker:
         self.logger.debug("Logging in user: %s (%s) - %s", user.name, user.user_id, user.mac)
 
         user.set_last_seen(time.time())
-        self._current_users[user.mac] = user
+        self._logged_in_users[user.mac] = user
 
         try:
             await self.app["watcher"].login(user)
@@ -152,31 +172,20 @@ class BearTracker:
                 self.logger.exception("Nmap scan raised exception")
 
             if not devices:
-                self.logger.debug("Found no alive devices on subnets: %s", ", ".join(SUBNETS))
+                self.logger.debug("Found no devices on subnets: %s", ", ".join(SUBNETS))
                 continue
 
-            found_users = {user for device in devices if (user := self._known_users.get(device))}
+            for mac in devices:
+                user = self._all_users.get(mac)
 
-            if not found_users:
-                self.logger.debug("Found no known devices.")
-            else:
-                self.logger.debug("Recognized users: %s", ', '.join((user.name for user in found_users)))
-
-            for user in found_users:
-                user.set_last_seen(time.time())
-
-            login_tasks = [
-                asyncio.ensure_future(self._login(self._known_users[user]))
-                for user in set(self._known_users) - {user.mac for user in found_users}
-            ]
-
-            logout_tasks = [
-                asyncio.ensure_future(self._logout(self._current_users[user]))
-                for user in self._current_users.values()
-                if user not in found_users and (time.time() - user.last_seen) > DEBOUNCE_SECONDS
-            ]
-
-            try:
-                await asyncio.gather(*login_tasks, *logout_tasks, return_exceptions=True)
-            except Exception as exc:
-                self.logger.exception("Exception encountered during login/logout tasks.", exc)
+                if not user:
+                    continue
+                
+                if user.mac not in self._logged_in_users:
+                    await self._login(user)
+                    continue
+                
+                if (time.time() - user.last_seen) > DEBOUNCE_SECONDS:
+                    await self._logout(user)
+                else:
+                    await self._logged_in_users[user.mac].set_last_seen(time.time())
