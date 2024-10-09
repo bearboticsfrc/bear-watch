@@ -52,23 +52,6 @@ class BearTracker:
         await self._populate_all_users()
         await self._populate_logged_in_users()
 
-        async with self.app["connection"].cursor() as cursor:
-            await cursor.execute("SELECT * FROM logins, users WHERE logins.user_id = users.user_id;")
-
-            rows = [row for row in (await cursor.fetchall()) if row["mac"]]
-
-            for row in rows:
-                user = NetworkUser.from_row(row)
-
-                if row["logout_time"] is None:
-                    self.logger.debug("Adding '%s' to current users cache", user.name)
-
-                    user.set_last_seen(row["login_time"])
-                    self._logged_in_users[user.mac] = user
-                
-                self.logger.debug("Adding '%s' to known users cache", user.name)
-                self._all_users[user.mac] = user
-
         return self
 
     async def __aexit__(self, *_) -> None:
@@ -82,9 +65,9 @@ class BearTracker:
                 user = NetworkUser.from_row(row)
                 self._all_users[user.mac] = user
 
-    async def _populate_all_users(self) -> None:
+    async def _populate_logged_in_users(self) -> None:
         async with self.app["connection"].cursor() as cursor:
-            await cursor.execute("SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logins.mac IS NULL;")
+            await cursor.execute("SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logins.logout_time IS NULL;")
             
             for row in (await cursor.fetchall()):
                 user = NetworkUser.from_row(row)
