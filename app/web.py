@@ -44,7 +44,7 @@ class BearWeb:
     @ROUTES.get("/user")
     async def get_user(request: web.Request) -> None:
         data = {"current": request.app["tracker"].logged_in_users, 
-                "known": request.app["tracker"].known_users}
+                "known": request.app["tracker"].all_users}
 
         return web.json_response(data)
     
