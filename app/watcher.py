@@ -40,11 +40,9 @@ class BearWatch:
             with open("setup.sql") as fp:
                 await connection.executescript(fp.read())
 
-            await connection.execute(
+            current_users = await connection.fetchall(
                 "SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logout_time IS NULL;")
             
-            current_users = await connection.fetchall()
-
         self.current_users = {row["user_id"]: User.from_row(row) for row in current_users}
 
         self.logger.debug("Starting force logout task")

@@ -28,8 +28,8 @@ def setup_logging() -> None:
 
 async def startup_hook(app: web.Application) -> None:
     LOGGER.debug("Connecting to database: %s", DATABASE)
-    app["connection"] = await asqlite.create_pool(Path(DATABASE).resolve())
-    
+    app["connection"] = c = await asqlite.create_pool(Path(DATABASE).resolve())
+    (await c.acquire()).fetchall
     LOGGER.info("Initalizing BearWatch")
     async with BearWatch(app=app) as watcher:
         app["watcher"] = watcher
