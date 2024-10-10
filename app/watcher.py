@@ -34,17 +34,16 @@ class BearWatch:
         self.logger.addHandler(handler)
 
     async def __aenter__(self) -> BearWatch:
-        async with self.app["connection"].cursor() as cursor:
+        async with self.app["connection"].acquire() as connection:
             self.logger.debug("Executing SQL setup script")
 
             with open("setup.sql") as fp:
-                await cursor.executescript(fp.read())
+                await connection.executescript(fp.read())
 
-            await self.app["connection"].commit()
-            await cursor.execute(
+            await connection.execute(
                 "SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logout_time IS NULL;")
             
-            current_users = await cursor.fetchall()
+            current_users = await connection.fetchall()
 
         self.current_users = {row["user_id"]: User.from_row(row) for row in current_users}
 
