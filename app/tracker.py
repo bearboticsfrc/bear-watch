@@ -58,18 +58,18 @@ class BearTracker:
         pass
 
     async def _populate_all_users(self) -> None:
-        async with self.app["connection"].cursor() as cursor:
-            await cursor.execute("SELECT * FROM users;")
+        async with self.app["connection"].acquire() as connection:
+            await connection.execute("SELECT * FROM users;")
             
-            for row in (await cursor.fetchall()):
+            for row in (await connection.fetchall()):
                 user = NetworkUser.from_row(row)
                 self._all_users[user.mac] = user
 
     async def _populate_logged_in_users(self) -> None:
-        async with self.app["connection"].cursor() as cursor:
-            await cursor.execute("SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logins.logout_time IS NULL;")
+        async with self.app["connection"].acquire() as connection:
+            await connection.execute("SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logins.logout_time IS NULL;")
             
-            for row in (await cursor.fetchall()):
+            for row in (await connection.fetchall()):
                 user = NetworkUser.from_row(row)
                 self._logged_in_users[user.mac] = user
 

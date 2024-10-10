@@ -74,9 +74,8 @@ class BearWatch:
 
         self.logger.debug("Executing: %s", statement)
 
-        async with self.app["connection"].cursor() as cursor:
-            await cursor.execute(*statement)
-            await self.app["connection"].commit()
+        async with self.app["connection"].acquire() as connection:
+            await connection.execute(*statement)
 
         self.app["tracker"].add_user(user)
 
@@ -94,17 +93,17 @@ class BearWatch:
 
         self.logger.debug("Executing: %s", statement)
 
-        async with self.app["connection"].cursor() as cursor:
-            await cursor.execute(*statement)
+        async with self.app["connection"].acquire() as connection:
+            await connection.execute(*statement)
             await self.app["connection"].commit()
 
     async def login(self, user: User) -> str:
-        async with self.app["connection"].cursor() as cursor:
+        async with self.app["connection"].acquire() as connection:
             statement = ("SELECT * FROM logins WHERE user_id = ? AND logout_time IS NULL;", user.user_id)
             self.logger.debug("Executing: %s", statement)
 
-            await cursor.execute(*statement)
-            login = await cursor.fetchone()
+            await connection.execute(*statement)
+            login = await connection.fetchone()
             
             if login is not None:
                 raise LoggedInUser
@@ -112,5 +111,5 @@ class BearWatch:
             statement = ("INSERT INTO logins (user_id, login_time) VALUES(?, ?);", (user.user_id, time.time()))
             self.logger.debug("Executing: %s", statement)
 
-            await cursor.execute(*statement)
+            await connection.execute(*statement)
             await self.app["connection"].commit()
