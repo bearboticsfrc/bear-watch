@@ -99,8 +99,7 @@ class BearWatch:
             statement = ("SELECT * FROM logins WHERE user_id = ? AND logout_time IS NULL;", user.user_id)
             self.logger.debug("Executing: %s", statement)
 
-            await connection.execute(*statement)
-            login = await connection.fetchone()
+            login = await connection.fetchone(*statement)
             
             if login is not None:
                 raise LoggedInUser
