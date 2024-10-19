@@ -1,16 +1,28 @@
 # Bear Watch
-A minimalistic tool used by Bearbotics to track the time spent by students and mentors at our facility.
 
-# Running
-Install the necessary requirements:
-```
-python -m pip install -r requirements.txt
+Bear Watch is a tool developed by Bearbotics to monitor the time spent by students and mentors at our facility.
+
+## Running the Application
+
+### Linux
+
+To run the application on a Linux-based system, use the following commands:
+
+```bash
+chmod +x run.sh
+./run.sh
 ```
 
-And run:
-```
-python .
+### Windows
+
+For Windows-based systems, execute the script with:
+
+```bash
+.\run.sh
 ```
 
-# TODO
-Currently, there is no way to extract the data from the database in a user-friendly way.
+**Note:** Elevated permissions are required to run these scripts.
+
+## Future Improvements
+
+Currently, the application lacks a user-friendly method for extracting data from the database.
