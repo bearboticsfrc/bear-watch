@@ -1,174 +1,111 @@
 from __future__ import annotations
 
 import asyncio
-import dataclasses
-import logging
-import re
+from logging import getLogger
 import time
+from re import compile
 from typing import TYPE_CHECKING
 
-from app.utils import LoggedInUser, NetworkUser, NmapScanError
-from config import *
+from config import SCAN_INTERVAL, SCAN_TIMEOUT, SUBNETS
+from app.exceptions import NmapScanError
 
 if TYPE_CHECKING:
-    from aiohttp import web
+    from app.watcher import Watcher
 
-class BearTracker:
-    _MAC_REGEX = re.compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})")
-
-    def __init__(self, app: web.Application) -> None:
-        self.app = app
-
-        self._all_users: dict[str, NetworkUser] = {}
-        self._logged_in_users: dict[str, NetworkUser] = {}
-
-        self.setup_logging()
-
-    @property
-    def all_users(self) -> dict[str, dict]:
-        return {mac: dataclasses.asdict(user) 
-                for mac, user 
-                in self._all_users.items()}
-
-    @property
-    def logged_in_users(self) -> dict[str, dict]:
-        return {mac: dataclasses.asdict(user) 
-                for mac, user 
-                in self._logged_in_users.items()}
-
-    def setup_logging(self) -> None:
-        level = getattr(logging, LOGGING_LEVEL.upper())
-
-        handler = logging.FileHandler("logs/tracker.log")
-        handler.setLevel(level)
-
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-
-        self.logger = logging.getLogger("bearwatch.tracker")
-        self.logger.addHandler(handler)
-    
-    async def __aenter__(self) -> BearTracker:
-        await self._populate_all_users()
-        await self._populate_logged_in_users()
-
-        return self
-
-    async def __aexit__(self, *_) -> None:
-        pass
-
-    async def _populate_all_users(self) -> None:
-        async with self.app["connection"].acquire() as connection:
-            rows = await connection.fetchall("SELECT * FROM users;")
-            
-            for row in rows:
-                user = NetworkUser.from_row(row)
-                self._all_users[user.mac] = user
-
-    async def _populate_logged_in_users(self) -> None:
-        async with self.app["connection"].acquire() as connection:
-            rows = await connection.fetchall("SELECT * FROM logins, users WHERE logins.user_id = users.user_id AND logins.logout_time IS NULL;")
-            
-            for row in rows:
-                user = NetworkUser.from_row(row)
-                self._logged_in_users[user.mac] = user
+_log = getLogger(__name__)
 
 
-    def add_user(self, user: NetworkUser) -> None:
-        """Add a user's mac address to the registry"""
-        self.logger.debug("Adding user to cache: %s", user)
-        
-        self._all_users[user.mac] = user
+class Tracker:
+    """Tracks active devices on the network and manages user logins.
+
+    This class periodically scans specified subnets for active devices and
+    logs users in automatically based on detected devices.
+    """
+
+    _MAC_REGEX = compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})")
+
+    def __init__(self, watcher: Watcher) -> None:
+        """Initializes the Tracker with a reference to the Watcher.
+
+        Args:
+            watcher (Watcher): The Watcher instance for managing user sessions.
+        """
+        self.watcher = watcher
 
     async def _scan_subnets(self, subnets: list[str]) -> list[str]:
-        """Scans provided subnets and returns the MAC addresses of all active devices. 
-           
-           Arguments:
-           subnets -- A list of subnets to scan. Should be in a notation recognized by Nmap.
+        """Scans provided subnets for active MAC addresses.
+
+        Args:
+            subnets (list[str]): List of subnets to scan.
+
+        Returns:
+            list[str]: List of MAC addresses found in the scan.
+
+        Raises:
+            NmapScanError: If the Nmap scan fails.
         """
-        self.logger.debug("Scanning subnets: %s", ", ".join(subnets))
+        _log.debug("Scanning subnets: %s", ", ".join(subnets))
 
         process = await asyncio.create_subprocess_exec(
-            "nmap", "-sn", "-n", *subnets, 
-            stdout=asyncio.subprocess.PIPE, 
-            stderr=asyncio.subprocess.PIPE
+            "nmap",
+            "-sn",
+            "-n",
+            *subnets,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
         )
 
         try:
-            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=120)
+            stdout, _ = await asyncio.wait_for(
+                process.communicate(), timeout=SCAN_TIMEOUT
+            )
         except TimeoutError:
-            self.logger.error("Nmap scan timed out. Terminating.")
             process.terminate()
-
             raise
+        finally:
+            await process.wait()  # Ensure cleanup
 
         if process.returncode != 0:
-            self.logger.error("Nmap scan failed with return code: %d", process.returncode)
-           
             raise NmapScanError("Nmap scan failed", process.returncode)
-        else:
-            stdout = stdout.decode()
 
-        return self._MAC_REGEX.findall(stdout)
+        return self._MAC_REGEX.findall(stdout.decode())
 
-
-    async def _logout(self, user: NetworkUser) -> None:
-        """Helper method to logout a user
-        
-        Arguments:
-        user -- The user to logout
-        """
-        self.logger.debug("Logging out user %s (%s) - %s", user.name, user.user_id, user.mac)
-
-        self._logged_in_users.pop(user.mac, None)
-        await self.app["watcher"].logout(user)
-
-    async def _login(self, user: NetworkUser) -> None:
-        """Helper method to login a user
-        
-        Arguments:
-        user -- The user to login
-        """
-        self.logger.debug("Logging in user: %s (%s) - %s", user.name, user.user_id, user.mac)
-
-        user.set_last_seen(time.time())
-        self._logged_in_users[user.mac] = user
-
-        try:
-            await self.app["watcher"].login(user)
-        except LoggedInUser:
-            self.logger.warning(
-                    "Tried to login already logged in user: %s (%s) - %s. Cache may be stale", 
-                    user.name, user.user_id, user.mac)
-        
     async def run(self) -> None:
-        """Run the network scanner for automatic logging in."""
+        """Runs the network scanner in an infinite loop.
+
+        Periodically scans for devices and logs users in based on active MAC addresses.
+        """
+        _log.info("Starting the network scanner")
 
         while True:
+            _log.debug("Sleeping for %ds", SCAN_INTERVAL)
             await asyncio.sleep(SCAN_INTERVAL)
 
             try:
                 devices = await self._scan_subnets(SUBNETS)
             except TimeoutError:
+                _log.warning("Nmap scan timed out")
                 continue
-            except Exception as exc:
-                self.logger.exception("Nmap scan raised exception")
+            except Exception:
+                _log.exception("Nmap scan raised exception")
+                continue
+
+            _log.info("Found %d devices", len(devices))
 
             if not devices:
-                self.logger.debug("Found no devices on subnets: %s", ", ".join(SUBNETS))
+                _log.debug("Found no devices on subnets: %s", ", ".join(SUBNETS))
                 continue
 
             for mac in devices:
-                user = self._all_users.get(mac)
+                user = self.watcher.get_user(mac)
 
                 if not user:
                     continue
-                
-                if user.mac not in self._logged_in_users:
-                    await self._login(user)
-                    continue
-                
-                if (time.time() - user.last_seen) > DEBOUNCE_SECONDS:
-                    await self._logout(user)
-                else:
-                    await self._logged_in_users[user.mac].set_last_seen(time.time())
+
+                _log.debug("Recognized device %s", mac)
+                user.set_last_seen(time.time())
+
+                if not user.logged_in:
+                    await self.watcher.login_user(user=user)
+
+            await self.watcher.purge_inactive_users()

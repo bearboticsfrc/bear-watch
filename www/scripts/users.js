@@ -28,23 +28,25 @@ async function fetchActiveUsers() {
 
     try {
         const response = await fetch('/user');
-        if (!response.ok) throw new Error('Network response was not ok');
+
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
 
         const data = await response.json();
-        const users = data.current || {};
+        const users = data.users || {};
 
-        if (Object.keys(users).length === 0) {
-            activeUsersDiv.innerHTML = `
-                <div class="alert alert-info text-center" role="alert">
-                    No logged-in users at the moment.
-                </div>
-            `;
-        } else {
-            const userCards = Object.values(users).map(createUserCard).join('');
-            activeUsersDiv.innerHTML = userCards;
-        }
+        const loggedInUsers = Object.values(users).filter(user => user.logged_in);
+
+        activeUsersDiv.innerHTML = loggedInUsers.length
+            ? loggedInUsers.map(createUserCard).join('')
+            : `<div class="alert alert-info text-center" role="alert">
+                 No logged-in users at the moment.
+               </div>`;
+
     } catch (error) {
         console.error('Error fetching logged-in users:', error);
+
         activeUsersDiv.innerHTML = `
             <div class="alert alert-danger text-center" role="alert">
                 Failed to load logged-in users. Please try again later.
@@ -53,7 +55,7 @@ async function fetchActiveUsers() {
     }
 }
 
-const refreshInterval = 60000; // 60 seconds
+const refreshInterval = 45000; // 45 seconds
 setInterval(fetchActiveUsers, refreshInterval);
 
 document.addEventListener('DOMContentLoaded', fetchActiveUsers);
