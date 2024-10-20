@@ -28,13 +28,14 @@ SUBNETS = ["192.168.0.*"]
 
 # SCAN_INTERVAL: The interval, in seconds, between each scan of the network.
 # This value controls how frequently the network is scanned for user devices.
-SCAN_INTERVAL = 5
+SCAN_INTERVAL = 60
 
 # SCAN_TIMEOUT: The maximum time, in seconds, to wait for the network scan to complete.
 # If the scan exceeds this time, it will be considered a timeout.
-SCAN_TIMEOUT = 120
+SCAN_TIMEOUT = 45
 
 # DEBOUNCE_SECONDS: The debounce time threshold, in seconds, to determine user inactivity.
 # If a user is not detected on the network within this time frame, they will be logged out.
-# It is recommended to be five times the scan interval.
-DEBOUNCE_SECONDS = SCAN_INTERVAL * 5
+# It is recommended to be quite high, as nmap will often not see some devices.
+DEBOUNCE_SECONDS = 60 * 15  # 15 minutes
+assert DEBOUNCE_SECONDS > SCAN_INTERVAL  # Should not be less than SCAN_INTERVAL

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 
 from app.models import NetworkUser
+from config import SCAN_INTERVAL, SCAN_TIMEOUT
 
 if TYPE_CHECKING:
     from app.watcher import Watcher
@@ -124,6 +125,21 @@ class Web:
         """
         return web.FileResponse(Web.WEB_BASE + "html/users.html")
 
+    @ROUTES.get("/config")
+    async def get_config(request: web.Request) -> None:
+        """
+        Returns a JSON response of the current configuration for the application.
+
+        Args:
+            request (web.Request): The incoming request object.
+
+        Returns:
+            web.FileResponse: A JSON response of the configuration data.
+        """
+        configuration = dict(refresh_interval=SCAN_INTERVAL + SCAN_TIMEOUT)
+
+        return web.json_response(configuration)
+
     def start(self, *, startup_hook=None, cleanup_hook=None) -> None:
         """
         Starts the web application.
@@ -137,4 +153,4 @@ class Web:
 
         self.app.router.add_static("/www", "www")
 
-        web.run_app(self.app, host="0.0.0.0", port=80)
+        web.run_app(self.app, port=80, access_log=None)

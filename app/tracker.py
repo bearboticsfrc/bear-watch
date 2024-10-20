@@ -44,7 +44,7 @@ class Tracker:
         Raises:
             NmapScanError: If the Nmap scan fails.
         """
-        _log.debug("Scanning subnets: %s", ", ".join(subnets))
+        _log.debug("Scanning subnets: %s.", ", ".join(subnets))
 
         process = await asyncio.create_subprocess_exec(
             "nmap",
@@ -75,25 +75,25 @@ class Tracker:
 
         Periodically scans for devices and logs users in based on active MAC addresses.
         """
-        _log.info("Starting the network scanner")
+        _log.info("Starting the network scanner.")
 
         while True:
-            _log.debug("Sleeping for %ds", SCAN_INTERVAL)
+            _log.debug("Sleeping for %ds.", SCAN_INTERVAL)
             await asyncio.sleep(SCAN_INTERVAL)
 
             try:
                 devices = await self._scan_subnets(SUBNETS)
             except TimeoutError:
-                _log.warning("Nmap scan timed out")
+                _log.warning("Nmap scan timed out.")
                 continue
             except Exception:
-                _log.exception("Nmap scan raised exception")
+                _log.exception("Nmap scan raised exception.")
                 continue
 
-            _log.info("Found %d devices", len(devices))
+            _log.info("Found %d devices.", len(devices))
 
             if not devices:
-                _log.debug("Found no devices on subnets: %s", ", ".join(SUBNETS))
+                _log.debug("Found no devices on subnets: %s.", ", ".join(SUBNETS))
                 continue
 
             for mac in devices:
@@ -102,7 +102,7 @@ class Tracker:
                 if not user:
                     continue
 
-                _log.debug("Recognized device %s", mac)
+                _log.debug("Recognized device %s.", mac)
                 user.set_last_seen(time.time())
 
                 if not user.logged_in:

@@ -1,3 +1,5 @@
+const DEFAULT_REFRESH_INTERVAL = 300 * 1000; // 300 seconds
+
 function formatTime(epoch) {
     const options = { timeStyle: 'short' };
     return new Date(epoch * 1000).toLocaleTimeString([], options);
@@ -55,7 +57,28 @@ async function fetchActiveUsers() {
     }
 }
 
-const refreshInterval = 45000; // 45 seconds
-setInterval(fetchActiveUsers, refreshInterval);
+async function getRefreshInterval() {
+    try {
+        const response = await fetch('/config');
 
-document.addEventListener('DOMContentLoaded', fetchActiveUsers);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+        return data.refresh_interval * 1000 || DEFAULT_REFRESH_INTERVAL;
+    } catch (error) {
+        console.error("Error fetching refresh interval:", error);
+        return DEFAULT_REFRESH_INTERVAL;
+    }
+}
+
+async function autoRefresh() {
+    const refreshInterval = await getRefreshInterval();
+    setInterval(fetchActiveUsers, refreshInterval);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    fetchActiveUsers();
+    autoRefresh();
+});

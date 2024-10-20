@@ -42,23 +42,23 @@ class Watcher:
             Watcher: The current instance of Watcher.
         """
         async with self.pool.acquire() as connection:
-            _log.debug("Executing SQL setup script")
+            _log.debug("Executing SQL setup script.")
             with open("setup.sql") as fp:
                 await connection.executescript(fp.read())
 
         await self._populate_users()
 
-        _log.debug("Starting force logout task")
+        _log.debug("Starting force logout task.")
         self.logout_task = asyncio.create_task(
             self._logout_task(), name="Watcher force-logout task"
         )
 
-        _log.debug("Starting tracker task")
+        _log.debug("Starting tracker task.")
         self.tracker_task = asyncio.create_task(
             self.tracker.run(), name="Tracker running task"
         )
 
-        _log.info("Watcher setup completed successfully")
+        _log.info("Watcher setup completed successfully.")
 
     async def _populate_users(self) -> dict[str, NetworkUser]:
         """
@@ -87,11 +87,11 @@ class Watcher:
 
         for row in rows:
             user = NetworkUser.from_row(row)
-            _log.debug("Adding known user %s", user)
+            _log.debug("Adding known user %s.", user)
             self._users[user.mac] = user
 
         _log.info(
-            "Found %d known users: %s",
+            "Found %d known users: %s.",
             len(self._users),
             ", ".join((user.name for user in self._users.values())),
         )
@@ -102,10 +102,10 @@ class Watcher:
 
         for task in tasks:
             if task and not task.done():
-                _log.debug("Cancelling task: %s", task.get_name())
+                _log.debug("Cancelling task: %s.", task.get_name())
                 task.cancel()
 
-        _log.info("Attempting to cancel %d tasks", len(tasks))
+        _log.info("Attempting to cancel %d tasks.", len(tasks))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -125,7 +125,7 @@ class Watcher:
             await self.logout_user(user=user)
 
         if inactive_users:
-            _log.info("Purged %d inactive users", len(inactive_users))
+            _log.info("Purged %d inactive users.", len(inactive_users))
 
     async def _logout_task(self) -> None:
         """
@@ -136,7 +136,7 @@ class Watcher:
         """
         while True:
             sleep_seconds = compute_logout_timedelta()
-            _log.debug("Sleeping for %ds", sleep_seconds)
+            _log.debug("Sleeping for %ds.", sleep_seconds)
 
             await asyncio.sleep(sleep_seconds)
             await self.logout("*")
@@ -168,13 +168,13 @@ class Watcher:
             mac=user.mac,
         )
 
-        _log.debug("Creating user %s (%s)", user.name, user.mac)
+        _log.debug("Creating user %s (%s).", user.name, user.mac)
         self._users[user.mac] = user
 
         async with self.pool.acquire() as connection:
             await connection.execute(statement, parameters)
 
-        _log.info("Created user: %s", user.name)
+        _log.info("Created user: %s.", user.name)
 
     async def logout_user(self, *, user: NetworkUser | Literal["*"]) -> None:
         """
@@ -199,14 +199,14 @@ class Watcher:
         users = self._users.values() if user == "*" else [user]
 
         for user in users:
-            _log.debug("Logging out %s (%s)", user.name, user.mac)
+            _log.debug("Logging out %s (%s).", user.name, user.mac)
             self._users[user.mac].set_logged_in(False)
 
         async with self.pool.acquire() as connection:
             await connection.execute(statement, parameters)
 
         name = user if user == "*" else user.name
-        _log.info("Logged out %s", name)
+        _log.info("Logged out %s.", name)
 
     async def login_user(self, user: NetworkUser) -> None:
         """
@@ -215,7 +215,7 @@ class Watcher:
         Args:
             user (NetworkUser): The user object to log in.
         """
-        _log.debug("Logging in %s (%s)", user.name, user.mac)
+        _log.debug("Logging in %s (%s).", user.name, user.mac)
 
         self._users[user.mac].set_logged_in(True)
 
@@ -227,4 +227,4 @@ class Watcher:
         async with self.pool.acquire() as connection:
             await connection.execute(statement, parameters)
 
-        _log.info("Logged in %s", user.name)
+        _log.info("Logged in %s.", user.name)
