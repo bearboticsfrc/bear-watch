@@ -1,5 +1,7 @@
+from csv import reader
 import dataclasses
 from base64 import b64encode
+from io import StringIO
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -83,8 +85,8 @@ class Web:
 
         # Create a NetworkUser object from the submitted form data.
         user = NetworkUser(
-            user_id=b64encode(form["username"].encode()).decode(),
-            name=form["username"],
+            id=b64encode(form["name"].encode()).decode(),
+            name=form["name"],
             role=form["role"].capitalize(),
             mac=form["mac"].replace("-", ":").upper(),
         )
@@ -139,6 +141,34 @@ class Web:
         configuration = dict(refresh_interval=SCAN_INTERVAL + SCAN_TIMEOUT)
 
         return web.json_response(configuration)
+
+    @ROUTES.get("/users/csv")
+    async def get_config(request: web.Request) -> None:
+        """
+        Returns a JSON response of the current configuration for the application.
+
+        Args:
+            request (web.Request): The incoming request object.
+
+        Returns:
+            web.FileResponse: A JSON response of the configuration data.
+        """
+        watcher: Watcher = request.app["watcher"]
+        hours = await watcher.get_total_hours()
+
+        output = StringIO()
+        writer = writer(output)
+        writer.writerow(("Name", "Role", "Total Hours"))
+        writer.writerows(hours)
+        output.seek(0)
+
+        return web.Response(
+            body=output.getvalue(),
+            content_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=bearbotics-hours.csv"
+            },
+        )
 
     def start(self, *, startup_hook=None, cleanup_hook=None) -> None:
         """

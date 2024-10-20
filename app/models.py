@@ -25,7 +25,7 @@ class NetworkUser:
     Represents a user on the network.
 
     Attributes:
-        user_id (str): Unique identifier for the user.
+        id (str): Unique identifier for the user.
         name (str): Name of the user.
         role (UserRole): Role of the user (Student, Mentor, Other).
         mac (str): MAC address of the user's device.
@@ -33,7 +33,7 @@ class NetworkUser:
         logged_in (bool): Indicates if the user is currently logged in.
     """
 
-    user_id: str
+    id: str
     name: str
     role: UserRole
     mac: str
@@ -72,8 +72,8 @@ class NetworkUser:
             NetworkUser: An instance of the NetworkUser class.
         """
         return cls(
-            user_id=row["user_id"],
-            name=row["username"],
+            id=row["id"],
+            name=row["name"],
             role=UserRole(row["role"]),
             mac=row["mac"],
             last_seen=row["last_seen"],

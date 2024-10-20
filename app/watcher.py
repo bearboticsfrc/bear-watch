@@ -43,7 +43,7 @@ class Watcher:
         """
         async with self.pool.acquire() as connection:
             _log.debug("Executing SQL setup script.")
-            with open("setup.sql") as fp:
+            with open("app/db/setup.sql") as fp:
                 await connection.executescript(fp.read())
 
         await self._populate_users()
@@ -80,7 +80,7 @@ class Watcher:
                     (ll.user_id IS NOT NULL) AS is_logged_in,
                     ll.last_seen
                 FROM users
-                LEFT JOIN latest_logins ll ON users.user_id = ll.user_id;
+                LEFT JOIN latest_logins ll ON users.id = ll.user_id;
             """
 
             rows = await connection.fetchall(query)
@@ -153,6 +153,36 @@ class Watcher:
         """
         return self._users if mac == "*" else self._users.get(mac)
 
+    async def get_total_hours(self) -> list[list[str | float]]:
+        """
+        Retrieve total hours logged by each user.
+
+        Returns:
+            list[list[Union[str, float]]]: A list of users with their logged name, role,
+            and total hours.
+        """
+
+        query = """SELECT 
+                    u.name,
+                    u.role,
+                    IFNULL(ROUND(SUM(CASE 
+                                        WHEN l.logout_time IS NOT NULL 
+                                        THEN (l.logout_time - l.login_time) / 3600 
+                                        ELSE 0 
+                                    END), 3), 0) AS total_hours
+                FROM 
+                    users u
+                LEFT JOIN 
+                    logins l ON u.id = l.user_id
+                GROUP BY 
+                    u.name, u.role;
+                """
+
+        async with self.pool.acquire() as connection:
+            rows = await connection.fetchall(query)
+
+        return [[row["name"], row["role"], row["total_hours"]] for row in rows]
+
     async def create_user(self, *, user: NetworkUser) -> None:
         """
         Creates a new user in the database and updates the local user dictionary.
@@ -160,9 +190,9 @@ class Watcher:
         Args:
             user (NetworkUser): The user object to be created.
         """
-        statement = "INSERT INTO users VALUES(:user_id, :name, :role, :mac);"
+        statement = "INSERT INTO users VALUES(:id, :name, :role, :mac);"
         parameters = dict(
-            user_id=user.user_id,
+            id=user.id,
             name=user.name,
             role=user.role.capitalize(),
             mac=user.mac,
@@ -183,7 +213,7 @@ class Watcher:
         Args:
             user (NetworkUser | Literal["*"]): The user to log out or "*" to log out all users.
         """
-        if user.user_id == "*":
+        if user.id == "*":
             statement = "UPDATE logins SET logout_time = :logout_time WHERE logout_time IS NULL;"
             parameters = dict(logout_time=time.time())
 
@@ -192,9 +222,9 @@ class Watcher:
                             WHERE login_id = (
                                 SELECT MAX(login_id)
                                 FROM logins
-                                WHERE user_id = :user_id AND logout_time IS NULL
+                                WHERE id = :id AND logout_time IS NULL
                             );"""
-            parameters = dict(logout_time=time.time(), user_id=user.user_id)
+            parameters = dict(logout_time=time.time(), id=user.id)
 
         users = self._users.values() if user == "*" else [user]
 
@@ -219,10 +249,8 @@ class Watcher:
 
         self._users[user.mac].set_logged_in(True)
 
-        statement = (
-            "INSERT INTO logins (user_id, login_time) VALUES (:user_id, :login_time);"
-        )
-        parameters = dict(user_id=user.user_id, login_time=time.time())
+        statement = "INSERT INTO logins (id, login_time) VALUES (:id, :login_time);"
+        parameters = dict(id=user.id, login_time=time.time())
 
         async with self.pool.acquire() as connection:
             await connection.execute(statement, parameters)

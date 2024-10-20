@@ -2,10 +2,14 @@
 
 Bear Watch is a tool developed by Bearbotics to monitor the time spent by students and mentors at our facility.
 
+## Configuring the Application
+Open ``config.py`` in a text editor and modify ``SUBNETS`` to reflect the networks you want to scan.
+
+You can also customize the other settings to suit your preferences.
+
 ## Running the Application
 
 ### Linux
-
 To run the application on a Linux-based system, use the following commands:
 
 ```bash
@@ -21,8 +25,7 @@ For Windows-based systems, execute the script with:
 .\run.sh
 ```
 
-**Note:** Elevated permissions are required to run these scripts.
+**Note:** Due to the nature of Nmap, elevated permissions are required to run these scripts.
 
-## Future Improvements
-
-Currently, the application lacks a user-friendly method for extracting data from the database.
+### Using the Tool
+Head to `http://localhost/` to see it running! The website is pretty self-explanatory.
