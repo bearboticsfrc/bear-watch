@@ -249,8 +249,10 @@ class Watcher:
 
         self._users[user.mac].set_logged_in(True)
 
-        statement = "INSERT INTO logins (id, login_time) VALUES (:id, :login_time);"
-        parameters = dict(id=user.id, login_time=time.time())
+        statement = (
+            "INSERT INTO logins (user_id, login_time) VALUES (:user_id, :login_time);"
+        )
+        parameters = dict(user_id=user.id, login_time=time.time())
 
         async with self.pool.acquire() as connection:
             await connection.execute(statement, parameters)
