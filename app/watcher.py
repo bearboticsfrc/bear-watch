@@ -222,9 +222,9 @@ class Watcher:
                             WHERE login_id = (
                                 SELECT MAX(login_id)
                                 FROM logins
-                                WHERE id = :id AND logout_time IS NULL
+                                WHERE user_id = :user_id AND logout_time IS NULL
                             );"""
-            parameters = dict(logout_time=time.time(), id=user.id)
+            parameters = dict(logout_time=time.time(), user_id=user.id)
 
         users = self._users.values() if user == "*" else [user]
 
