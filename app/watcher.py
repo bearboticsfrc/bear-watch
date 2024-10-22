@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from logging import getLogger
+from sqlite3 import IntegrityError
 import time
 from typing import TYPE_CHECKING, Literal
 
@@ -202,7 +203,10 @@ class Watcher:
         self._users[user.mac] = user
 
         async with self.pool.acquire() as connection:
-            await connection.execute(statement, parameters)
+            try:
+                await connection.execute(statement, parameters)
+            except IntegrityError:
+                _log.info("Tried to create a user which already exits.")
 
         _log.info("Created user: %s.", user.name)
 

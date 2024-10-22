@@ -124,12 +124,17 @@ class Web:
         """
         form = await request.post()
 
+        name = form["name"].strip()
+        id = b64encode(name.encode()).decode()
+        role = form["role"].capitalize()
+        mac = form["mac"].replace("-", ":").upper()
+
         # Create a NetworkUser object from the submitted form data.
         user = NetworkUser(
-            id=b64encode(form["name"].encode()).decode(),
-            name=form["name"],
-            role=form["role"].capitalize(),
-            mac=form["mac"].replace("-", ":").upper(),
+            id=id,
+            name=name,
+            role=role,
+            mac=mac,
         )
 
         watcher: Watcher = request.app["watcher"]
