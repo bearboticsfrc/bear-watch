@@ -13,23 +13,19 @@ LOGGING_FORMATTER = logging.Formatter(
 # DATABASE: The file path to the SQLite database used for storing user information.
 DATABASE = "app/db/users.db"
 
-# FORCE_LOGOUT_HOUR: The hour (in 24-hour format) at which all users should be forcefully logged out.
-# This ensures that users who haven't been logged out are automatically logged out daily.
-# Value is set in 24-hour format; e.g., 22 means 10:00 PM.
-FORCE_LOGOUT_HOUR = 22  # TODO: Artifact from old system?
-
-# SUBNETS: A list of subnet ranges to be scanned by Nmap to detect active devices.
-# Each subnet is specified in a format recognized by Nmap. For example, "192.168.0.*" means
+# SUBNETS: A list of subnet ranges to be scanned to detect active devices.
+# Each subnet is specified in CIDR format. For example, "192.168.0.0/24" means
 # all devices in the "192.168.0.x" IP range will be scanned.
-SUBNETS = ("192.168.0.*",)
+SUBNETS = ("192.168.0.0/24",)
 
 # SCAN_INTERVAL: The interval, in seconds, between each scan of the network.
 # This value controls how frequently the network is scanned for user devices.
 SCAN_INTERVAL = 60
 
-# SCAN_TIMEOUT: The maximum time, in seconds, to wait for the network scan to complete.
-# If the scan exceeds this time, it will be considered a timeout.
-SCAN_TIMEOUT = 45
+# HOST_RESPONSE_TIMEOUT: The maximum time, in seconds, to wait for a host to respond to our ARP packet.
+# If the ping exceeds this time, it will be considered a timeout.
+# It is highly recommended to leave this as the default!
+HOST_RESPONSE_TIMEOUT = 5
 
 # DEBOUNCE_SECONDS: The debounce time threshold, in seconds, to determine user inactivity.
 # If a user is not detected on the network within this time frame, they will be logged out.

@@ -49,11 +49,6 @@ class Watcher:
 
         await self._populate_users()
 
-        _log.debug("Starting force logout task.")
-        self.logout_task = asyncio.create_task(
-            self._logout_task(), name="Watcher force-logout task"
-        )
-
         _log.debug("Starting tracker task.")
         self.tracker_task = asyncio.create_task(
             self.tracker.run(), name="Tracker running task"

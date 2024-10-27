@@ -5,9 +5,10 @@ from logging import getLogger
 import time
 from re import compile
 from typing import TYPE_CHECKING
+import functools
+from scapy.layers.l2 import arping
 
-from config import SCAN_INTERVAL, SCAN_TIMEOUT, SUBNETS
-from app.exceptions import NmapScanError
+from config import HOST_RESPONSE_TIMEOUT, SCAN_INTERVAL, SUBNETS
 
 if TYPE_CHECKING:
     from app.watcher import Watcher
@@ -32,6 +33,34 @@ class Tracker:
         """
         self.watcher = watcher
 
+    async def _scan_network(self, network: str) -> list[str]:
+        """Scans a specific network for active MAC addresses.
+
+        This method performs an ARP scan on the specified network to identify
+        devices present on the network. It uses the `arping` function from Scapy
+        to send ARP requests and receives responses.
+
+        Args:
+            network (str): The network to scan, specified in CIDR notation,
+                        e.g., '192.168.1.0/24'.
+
+        Returns:
+            list[str]: A list of MAC addresses (uppercased) found in the scan.
+                        If no devices are found, an empty list is returned.
+
+        Raises:
+            Exception: Any exceptions raised during the ARP scanning process
+                    are captured and logged.
+        """
+        loop = asyncio.get_event_loop()
+
+        func = functools.partial(
+            arping, net=network, timeout=HOST_RESPONSE_TIMEOUT, verbose=False
+        )
+        answered, _ = await loop.run_in_executor(None, func)
+
+        return [received.hwsrc.upper() for _, received in answered]
+
     async def _scan_subnets(self, subnets: list[str]) -> list[str]:
         """Scans provided subnets for active MAC addresses.
 
@@ -40,35 +69,23 @@ class Tracker:
 
         Returns:
             list[str]: List of MAC addresses found in the scan.
-
-        Raises:
-            NmapScanError: If the Nmap scan fails.
         """
         _log.debug("Scanning subnets: %s.", ", ".join(subnets))
 
-        process = await asyncio.create_subprocess_exec(
-            "nmap",
-            "-sn",
-            "-n",
-            *subnets,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+        results = await asyncio.gather(
+            *[self._scan_network(network) for network in subnets],
+            return_exceptions=True,
         )
 
-        try:
-            stdout, _ = await asyncio.wait_for(
-                process.communicate(), timeout=SCAN_TIMEOUT
-            )
-        except TimeoutError:
-            process.terminate()
-            raise
-        finally:
-            await process.wait()  # Ensure cleanup
+        devices = []
 
-        if process.returncode != 0:
-            raise NmapScanError("Nmap scan failed", process.returncode)
+        for result in results:
+            if isinstance(result, Exception):
+                _log.error("Error during network scan: %s", result)
+            else:
+                devices.extend(result)
 
-        return self._MAC_REGEX.findall(stdout.decode())
+        return devices
 
     async def run(self) -> None:
         """Runs the network scanner in an infinite loop.
@@ -81,15 +98,7 @@ class Tracker:
             _log.debug("Sleeping for %ds.", SCAN_INTERVAL)
             await asyncio.sleep(SCAN_INTERVAL)
 
-            try:
-                devices = await self._scan_subnets(SUBNETS)
-            except TimeoutError:
-                _log.warning("Nmap scan timed out.")
-                continue
-            except Exception:
-                _log.exception("Nmap scan raised exception.")
-                continue
-
+            devices = await self._scan_subnets(SUBNETS)
             _log.info("Found %d devices.", len(devices))
 
             if not devices:

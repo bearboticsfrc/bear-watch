@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 
 from app.models import NetworkUser
-from config import SCAN_INTERVAL, SCAN_TIMEOUT
+from config import SCAN_INTERVAL
 
 if TYPE_CHECKING:
     from app.watcher import Watcher
@@ -191,7 +191,7 @@ class Web:
         Returns:
             web.json_response: A JSON response of the configuration data.
         """
-        configuration = dict(refresh_interval=SCAN_INTERVAL + SCAN_TIMEOUT)
+        configuration = dict(refresh_interval=SCAN_INTERVAL)
 
         return web.json_response(configuration)
 
