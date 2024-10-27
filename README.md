@@ -25,7 +25,7 @@ For Windows-based systems, execute the script with:
 .\run.sh
 ```
 
-**Note:** Due to the nature of Nmap, elevated permissions are required to run these scripts.
+**Note:** Due to the nature of the program, elevated permissions are required to run these scripts.
 
 ### Using the Tool
 Head to `http://localhost/` to see it running! The website is pretty self-explanatory.

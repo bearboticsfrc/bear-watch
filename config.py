@@ -29,6 +29,6 @@ HOST_RESPONSE_TIMEOUT = 5
 
 # DEBOUNCE_SECONDS: The debounce time threshold, in seconds, to determine user inactivity.
 # If a user is not detected on the network within this time frame, they will be logged out.
-# It is recommended to be quite high, as Nmap will often not see some devices.
+# It is recommended to be quite high as devices will often not respond to our ARP scans.
 DEBOUNCE_SECONDS = 60 * 15  # 15 minutes
 assert DEBOUNCE_SECONDS > SCAN_INTERVAL  # Should not be less than SCAN_INTERVAL

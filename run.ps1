@@ -4,13 +4,8 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 }
 
 $pipList = python -m pip list --disable-pip-version-check *>&1 | Out-Null
-if ($pipList -notmatch "asqlite" -or $pipList -notmatch "aiohttp") {
+if ($pipList -notmatch "asqlite" -or $pipList -notmatch "aiohttp" -or $pipList -notmatch "scapy") {
     python -m pip install -r requirements.txt
-}
-
-if (-not (Get-Command nmap -ErrorAction SilentlyContinue)) {
-    Write-Host "nmap is not installed. Please install it from https://nmap.org/"
-    exit 1
 }
 
 python .
