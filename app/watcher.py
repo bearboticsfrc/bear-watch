@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Literal
 
 from app.models import NetworkUser
 from app.tracker import Tracker
-from app.utils import compute_logout_timedelta
 
 if TYPE_CHECKING:
     import asqlite
@@ -122,20 +121,6 @@ class Watcher:
 
         if inactive_users:
             _log.info("Purged %d inactive users.", len(inactive_users))
-
-    async def _logout_task(self) -> None:
-        """
-        Periodically logs out users at FORCE_LOGOUT_HOUR.
-
-        This runs in an infinite loop, sleeping for a specified duration before
-        attempting to log out users still logged in.
-        """
-        while True:
-            sleep_seconds = compute_logout_timedelta()
-            _log.debug("Sleeping for %ds.", sleep_seconds)
-
-            await asyncio.sleep(sleep_seconds)
-            await self.logout("*")
 
     def get_user(self, mac: str | Literal["*"]) -> NetworkUser | None:
         """
