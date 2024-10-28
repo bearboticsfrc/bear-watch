@@ -93,7 +93,7 @@ class Watcher:
 
     async def cleanup(self) -> None:
         """Cancels ongoing tasks and performs cleanup."""
-        tasks = [self.logout_task, self.tracker_task]
+        tasks = [self.tracker_task]
 
         for task in tasks:
             if task and not task.done():
