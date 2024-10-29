@@ -1,4 +1,4 @@
-from csv import reader
+from csv import writer
 import dataclasses
 from base64 import b64encode
 from io import StringIO
@@ -83,12 +83,17 @@ class Web:
         """
         form = await request.post()
 
+        id = b64encode(form["name"].encode()).decode()
+        name = form["name"]
+        role = form["role"].capitalize()
+        mac = form["mac"].replace("-", ":").upper()
+
         # Create a NetworkUser object from the submitted form data.
         user = NetworkUser(
-            id=b64encode(form["name"].encode()).decode(),
-            name=form["name"],
-            role=form["role"].capitalize(),
-            mac=form["mac"].replace("-", ":").upper(),
+            id=id,
+            name=name,
+            role=role,
+            mac=mac,
         )
 
         watcher: Watcher = request.app["watcher"]
@@ -157,9 +162,9 @@ class Web:
         hours = await watcher.get_total_hours()
 
         output = StringIO()
-        writer = writer(output)
-        writer.writerow(("Name", "Role", "Total Hours"))
-        writer.writerows(hours)
+        csv_writer = writer(output)
+        csv_writer.writerow(("Name", "Role", "Total Hours"))
+        csv_writer.writerows(hours)
         output.seek(0)
 
         return web.Response(

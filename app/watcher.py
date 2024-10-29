@@ -67,22 +67,22 @@ class Watcher:
         Returns:
             dict[str, NetworkUser]: Mapping of MAC addresses to NetworkUser objects.
         """
-        async with self.pool.acquire() as connection:
-            query = """
-                WITH latest_logins AS (
-                    SELECT logins.user_id, 
-                        MAX(logins.login_time) AS last_seen 
-                    FROM logins 
-                    WHERE logins.logout_time IS NULL 
-                    GROUP BY logins.user_id
-                )
-                SELECT users.*, 
-                    (ll.user_id IS NOT NULL) AS is_logged_in,
-                    ll.last_seen
-                FROM users
-                LEFT JOIN latest_logins ll ON users.id = ll.user_id;
-            """
+        query = """
+            WITH latest_logins AS (
+                SELECT logins.user_id, 
+                    MAX(logins.login_time) AS last_seen 
+                FROM logins 
+                WHERE logins.logout_time IS NULL 
+                GROUP BY logins.user_id
+            )
+            SELECT users.*, 
+                (ll.user_id IS NOT NULL) AS is_logged_in,
+                ll.last_seen
+            FROM users
+            LEFT JOIN latest_logins ll ON users.id = ll.user_id;
+        """
 
+        async with self.pool.acquire() as connection:
             rows = await connection.fetchall(query)
 
         for row in rows:
