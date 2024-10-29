@@ -124,10 +124,13 @@ class Web:
         """
         form = await request.post()
 
-        name = form["name"].strip()
-        id = b64encode(name.encode()).decode()
-        role = form["role"].capitalize()
-        mac = form["mac"].replace("-", ":").upper()
+        try:
+            name = form["name"].strip()
+            id = b64encode(name.encode()).decode()
+            role = form["role"].capitalize()
+            mac = form["mac"].replace("-", ":").upper()
+        except KeyError:
+            return web.Response(status=400)
 
         # Create a NetworkUser object from the submitted form data.
         user = NetworkUser(
