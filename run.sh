@@ -17,7 +17,8 @@ if [ "$VIRTUAL_ENV" == "" ]; then
 fi
 
 # Check and install Python requirements
-if ! python3 -m pip list --disable-pip-version-check | grep -E "asqlite|aiohttp" > /dev/null; then
+# TODO: Fix this script
+if ! python3 -m pip list --disable-pip-version-check | grep -qzE "aiohttp.*asqlite|asqlite.*aiohttp"; then
   echo "Python requirements not found. Installing..."
   python3 -m pip install -r requirements.txt
 fi
