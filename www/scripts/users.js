@@ -6,6 +6,7 @@ function formatTime(epoch) {
 }
 
 function createUserCard(user) {
+    const firstSeenTime = formatTime(user.first_seen);
     const lastSeenTime = formatTime(user.last_seen);
 
     return `
@@ -16,6 +17,7 @@ function createUserCard(user) {
                     <p class="card-text">
                         Role: <b>${user.role}</b><br>
                         MAC Address: <b>${user.mac}</b><br>
+                        First Seen: <b>${firstSeenTime}</b><br>
                         Last Seen: <b>${lastSeenTime}</b>
                     </p>
                 </div>

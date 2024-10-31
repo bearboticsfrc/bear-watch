@@ -19,7 +19,7 @@ class UserRole(StrEnum):
     OTHER = "Other"
 
 
-@dataclass(unsafe_hash=True)
+@dataclass
 class NetworkUser:
     """
     Represents a user on the network.
@@ -29,6 +29,7 @@ class NetworkUser:
         name (str): Name of the user.
         role (UserRole): Role of the user (Student, Mentor, Other).
         mac (str): MAC address of the user's device.
+        first_seen (float): Timestamp of the first time the user was seen.
         last_seen (float): Timestamp of the last time the user was seen.
         logged_in (bool): Indicates if the user is currently logged in.
     """
@@ -37,11 +38,15 @@ class NetworkUser:
     name: str
     role: UserRole
     mac: str
+    first_seen: float = None
     last_seen: float = None
     logged_in: bool = False
 
     def set_last_seen(self, time: float) -> None:
         """Updates the last seen timestamp."""
+        if self.first_seen is None:
+            self.first_seen = time
+
         self.last_seen = time
 
     def set_logged_in(self, logged_in: bool) -> None:
@@ -76,6 +81,7 @@ class NetworkUser:
             name=row["name"],
             role=UserRole(row["role"]),
             mac=row["mac"],
+            first_seen=row["last_seen"],
             last_seen=row["last_seen"],
             logged_in=bool(row["is_logged_in"]),
         )
