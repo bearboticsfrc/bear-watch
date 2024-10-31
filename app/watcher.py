@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from logging import getLogger
+from sqlite3 import IntegrityError
 import time
 from typing import TYPE_CHECKING, Literal
 
 from app.models import NetworkUser
 from app.tracker import Tracker
-from app.utils import compute_logout_timedelta
 
 if TYPE_CHECKING:
     import asqlite
@@ -47,11 +47,6 @@ class Watcher:
                 await connection.executescript(fp.read())
 
         await self._populate_users()
-
-        _log.debug("Starting force logout task.")
-        self.logout_task = asyncio.create_task(
-            self._logout_task(), name="Watcher force-logout task"
-        )
 
         _log.debug("Starting tracker task.")
         self.tracker_task = asyncio.create_task(
@@ -98,7 +93,7 @@ class Watcher:
 
     async def cleanup(self) -> None:
         """Cancels ongoing tasks and performs cleanup."""
-        tasks = [self.logout_task, self.tracker_task]
+        tasks = [self.tracker_task]
 
         for task in tasks:
             if task and not task.done():
@@ -126,20 +121,6 @@ class Watcher:
 
         if inactive_users:
             _log.info("Purged %d inactive users.", len(inactive_users))
-
-    async def _logout_task(self) -> None:
-        """
-        Periodically logs out users at FORCE_LOGOUT_HOUR.
-
-        This runs in an infinite loop, sleeping for a specified duration before
-        attempting to log out users still logged in.
-        """
-        while True:
-            sleep_seconds = compute_logout_timedelta()
-            _log.debug("Sleeping for %ds.", sleep_seconds)
-
-            await asyncio.sleep(sleep_seconds)
-            await self.logout("*")
 
     def get_user(self, mac: str | Literal["*"]) -> NetworkUser | None:
         """
@@ -202,7 +183,10 @@ class Watcher:
         self._users[user.mac] = user
 
         async with self.pool.acquire() as connection:
-            await connection.execute(statement, parameters)
+            try:
+                await connection.execute(statement, parameters)
+            except IntegrityError:
+                _log.info("Tried to create a user which already exits.")
 
         _log.info("Created user: %s.", user.name)
 
@@ -222,9 +206,9 @@ class Watcher:
                             WHERE login_id = (
                                 SELECT MAX(login_id)
                                 FROM logins
-                                WHERE id = :id AND logout_time IS NULL
+                                WHERE user_id = :user_id AND logout_time IS NULL
                             );"""
-            parameters = dict(logout_time=time.time(), id=user.id)
+            parameters = dict(logout_time=time.time(), user_id=user.id)
 
         users = self._users.values() if user == "*" else [user]
 
@@ -249,8 +233,10 @@ class Watcher:
 
         self._users[user.mac].set_logged_in(True)
 
-        statement = "INSERT INTO logins (id, login_time) VALUES (:id, :login_time);"
-        parameters = dict(id=user.id, login_time=time.time())
+        statement = (
+            "INSERT INTO logins (user_id, login_time) VALUES (:user_id, :login_time);"
+        )
+        parameters = dict(user_id=user.id, login_time=time.time())
 
         async with self.pool.acquire() as connection:
             await connection.execute(statement, parameters)

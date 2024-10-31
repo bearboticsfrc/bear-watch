@@ -13,11 +13,6 @@ LOGGING_FORMATTER = logging.Formatter(
 # DATABASE: The file path to the SQLite database used for storing user information.
 DATABASE = "app/db/users.db"
 
-# FORCE_LOGOUT_HOUR: The hour (in 24-hour format) at which all users should be forcefully logged out.
-# This ensures that users who haven't been logged out are automatically logged out daily.
-# Value is set in 24-hour format; e.g., 22 means 10:00 PM.
-FORCE_LOGOUT_HOUR = 22  # TODO: Artifact from old system?
-
 # SUBNETS: A list of subnet ranges to be scanned by Nmap to detect active devices.
 # Each subnet is specified in a format recognized by Nmap. For example, "192.168.0.*" means
 # all devices in the "192.168.0.x" IP range will be scanned.

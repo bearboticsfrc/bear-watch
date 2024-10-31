@@ -31,6 +31,21 @@ class Web:
         self.app = web.Application()
         self.app.add_routes(self.ROUTES)
 
+    def start(self, *, startup_hook=None, cleanup_hook=None) -> None:
+        """
+        Starts the web application.
+
+        Args:
+            startup_hook (callable, optional): A callable to be executed on startup.
+            cleanup_hook (callable, optional): A callable to be executed on cleanup.
+        """
+        self.app.on_startup.append(startup_hook)
+        self.app.on_cleanup.append(cleanup_hook)
+
+        self.app.router.add_static("/www", "www")
+
+        web.run_app(self.app, port=80, access_log=None)
+
     @ROUTES.get("/")
     async def get_index(request: web.Request) -> None:
         """
@@ -70,6 +85,32 @@ class Web:
         """
         return web.FileResponse(Web.WEB_BASE + "html/mac.html")
 
+    @ROUTES.get("/users")
+    async def get_users(request: web.Request) -> None:
+        """
+        Serves the users HTML page.
+
+        Args:
+            request (web.Request): The incoming request object.
+
+        Returns:
+            web.FileResponse: The users HTML page.
+        """
+        return web.FileResponse(Web.WEB_BASE + "html/users.html")
+
+    @ROUTES.get("/hours")
+    async def get_hours(request: web.Request) -> None:
+        """
+        Serves the total user hours HTML page.
+
+        Args:
+            request (web.Request): The incoming request object.
+
+        Returns:
+            web.FileResponse: The total user hours HTML page.
+        """
+        return web.FileResponse(Web.WEB_BASE + "html/hours.html")
+
     @ROUTES.post("/user")
     async def post_user(request: web.Request) -> None:
         """
@@ -83,10 +124,13 @@ class Web:
         """
         form = await request.post()
 
-        id = b64encode(form["name"].encode()).decode()
-        name = form["name"]
-        role = form["role"].capitalize()
-        mac = form["mac"].replace("-", ":").upper()
+        try:
+            name = form["name"].strip()
+            id = b64encode(name.encode()).decode()
+            role = form["role"].capitalize()
+            mac = form["mac"].replace("-", ":").upper()
+        except KeyError:
+            return web.Response(status=400)
 
         # Create a NetworkUser object from the submitted form data.
         user = NetworkUser(
@@ -119,18 +163,25 @@ class Web:
 
         return web.json_response(data)
 
-    @ROUTES.get("/users")
-    async def get_users(request: web.Request) -> None:
+    @ROUTES.get("/hour")
+    async def get_hour(request: web.Request) -> None:
         """
-        Serves the users HTML page.
+        Returns a JSON response containing all user's total hours.
 
         Args:
             request (web.Request): The incoming request object.
 
         Returns:
-            web.FileResponse: The users HTML page.
+            web.json_response: A JSON response with user data.
         """
-        return web.FileResponse(Web.WEB_BASE + "html/users.html")
+        watcher: Watcher = request.app["watcher"]
+        hours = await watcher.get_total_hours()
+
+        users = dict(
+            users=[dict(name=row[0], role=row[1], total_hours=row[2]) for row in hours]
+        )
+
+        return web.json_response(data=users)
 
     @ROUTES.get("/config")
     async def get_config(request: web.Request) -> None:
@@ -141,30 +192,31 @@ class Web:
             request (web.Request): The incoming request object.
 
         Returns:
-            web.FileResponse: A JSON response of the configuration data.
+            web.json_response: A JSON response of the configuration data.
         """
         configuration = dict(refresh_interval=SCAN_INTERVAL + SCAN_TIMEOUT)
 
         return web.json_response(configuration)
 
-    @ROUTES.get("/users/csv")
-    async def get_config(request: web.Request) -> None:
+    @ROUTES.get("/hours/csv")
+    async def get_hours_csv(request: web.Request) -> None:
         """
-        Returns a JSON response of the current configuration for the application.
+        Returns a CSV response containing all user's total hours.
 
         Args:
             request (web.Request): The incoming request object.
 
         Returns:
-            web.FileResponse: A JSON response of the configuration data.
+            web.Response: A CSV response with user data.
         """
         watcher: Watcher = request.app["watcher"]
         hours = await watcher.get_total_hours()
 
         output = StringIO()
-        csv_writer = writer(output)
-        csv_writer.writerow(("Name", "Role", "Total Hours"))
-        csv_writer.writerows(hours)
+        csv = writer(output)
+        csv.writerow(("Name", "Role", "Total Hours"))
+        csv.writerows(hours)
+
         output.seek(0)
 
         return web.Response(
@@ -174,18 +226,3 @@ class Web:
                 "Content-Disposition": "attachment; filename=bearbotics-hours.csv"
             },
         )
-
-    def start(self, *, startup_hook=None, cleanup_hook=None) -> None:
-        """
-        Starts the web application.
-
-        Args:
-            startup_hook (callable, optional): A callable to be executed on startup.
-            cleanup_hook (callable, optional): A callable to be executed on cleanup.
-        """
-        self.app.on_startup.append(startup_hook)
-        self.app.on_cleanup.append(cleanup_hook)
-
-        self.app.router.add_static("/www", "www")
-
-        web.run_app(self.app, port=80, access_log=None)
