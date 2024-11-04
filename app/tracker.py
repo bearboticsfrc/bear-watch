@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from logging import getLogger
 import time
 from re import compile
 from typing import TYPE_CHECKING
 
-from config import SCAN_INTERVAL, SCAN_TIMEOUT, SUBNETS
+from config import SCAN_INTERVAL, SCAN_TIMEOUT, SUBNETS, ACTIVE_HOURS
 from app.exceptions import NmapScanError
 
 if TYPE_CHECKING:
@@ -80,6 +81,10 @@ class Tracker:
         while True:
             _log.debug("Sleeping for %ds.", SCAN_INTERVAL)
             await asyncio.sleep(SCAN_INTERVAL)
+
+            if datetime.now().hour not in ACTIVE_HOURS:
+                _log.debug("We are outside of active hours. Skipping loop iteration...")
+                continue
 
             try:
                 devices = await self._scan_subnets(SUBNETS)
