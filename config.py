@@ -21,7 +21,7 @@ SUBNETS = ("192.168.0.*",)
 # ACTIVE_HOURS: A range of hours (in 24-hour format) when the scanner will be active.
 # If the scanner finds we are outside of active hours, it will effectively "hibernate" and stop performing all related routines.
 # Values are set in 24-hour format; e.g., 22 means 10:00 PM.
-ACTIVE_HOURS = range(15, 21)
+ACTIVE_HOURS = (15, 21)
 
 # SCAN_INTERVAL: The interval, in seconds, between each scan of the network.
 # This value controls how frequently the network is scanned for user devices.
