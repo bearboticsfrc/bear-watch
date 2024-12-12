@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from logging import getLogger
 import time
-from re import compile
+import re
 from typing import TYPE_CHECKING
 
 from config import SCAN_INTERVAL, SCAN_TIMEOUT, SUBNETS
@@ -22,7 +22,10 @@ class Tracker:
     logs users in automatically based on detected devices.
     """
 
-    _MAC_REGEX = compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})")
+    _MAC_REGEX = re.compile(
+        r"(\d+\.\d+\.\d+\.\d+).*?((?:[0-9A-Fa-f]{2}[:]){5}(?:[0-9A-Fa-f]{2}))",
+        flags=re.DOTALL,
+    )
 
     def __init__(self, watcher: Watcher) -> None:
         """Initializes the Tracker with a reference to the Watcher.
@@ -32,14 +35,14 @@ class Tracker:
         """
         self.watcher = watcher
 
-    async def _scan_subnets(self, subnets: list[str]) -> list[str]:
+    async def _scan_subnets(self, subnets: list[str]) -> dict[str, str]:
         """Scans provided subnets for active MAC addresses.
 
         Args:
             subnets (list[str]): List of subnets to scan.
 
         Returns:
-            list[str]: List of MAC addresses found in the scan.
+            dict[str, str]: Mapping of IP addresses to MAC addresses.
 
         Raises:
             NmapScanError: If the Nmap scan fails.
@@ -68,7 +71,9 @@ class Tracker:
         if process.returncode != 0:
             raise NmapScanError("Nmap scan failed", process.returncode)
 
-        return self._MAC_REGEX.findall(stdout.decode())
+        return {
+            address: mac for address, mac in self._MAC_REGEX.findall(stdout.decode())
+        }
 
     async def run(self) -> None:
         """Runs the network scanner in an infinite loop.
@@ -89,6 +94,8 @@ class Tracker:
             except Exception:
                 _log.exception("Nmap scan raised exception.")
                 continue
+            else:
+                self.watcher.set_seen_devices(devices)
 
             _log.info("Found %d devices.", len(devices))
 
@@ -96,7 +103,7 @@ class Tracker:
                 _log.debug("Found no devices on subnets: %s.", ", ".join(SUBNETS))
                 continue
 
-            for mac in devices:
+            for mac in devices.values():
                 user = self.watcher.get_user(mac)
 
                 if not user:
