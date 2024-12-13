@@ -1,12 +1,10 @@
-// Example starter JavaScript for disabling form submissions if there are invalid fields
+// Disable form submission if there are invalid fields
 (() => {
     'use strict';
 
-    // Fetch all the forms we want to apply custom Bootstrap validation styles to
     const forms = document.querySelectorAll('.needs-validation');
 
-    // Loop over them and prevent submission
-    Array.from(forms).forEach(form => {
+    forms.forEach(form => {
         form.addEventListener('submit', event => {
             if (!form.checkValidity()) {
                 event.preventDefault();
@@ -14,7 +12,42 @@
             }
 
             form.classList.add('was-validated');
-        }, false)
-    })
-})()
+        });
+    });
+})();
 
+const nameInput = document.getElementById('name');
+const macInput = document.getElementById('mac');
+
+const tooltip = new bootstrap.Tooltip(macInput, {
+    title: 'MAC address autofilled',
+    trigger: 'manual'
+});
+
+[nameInput, macInput].forEach(input => {
+    input.addEventListener('focus', autofillMac);
+});
+
+async function autofillMac() {
+    // Prevent autofill if the MAC input already has a value
+    if (macInput.value) return;
+
+    try {
+        const response = await fetch('/device');
+
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+
+        const { device } = await response.json();
+        macInput.value = device || ''; // Autofill or leave empty
+
+        if (device) {
+            tooltip.show();
+
+            setTimeout(() => tooltip.hide(), 3000); // Hide tooltip after 3 seconds
+        }
+    } catch (error) {
+        console.error('Error fetching MAC address:', error);
+    }
+}
