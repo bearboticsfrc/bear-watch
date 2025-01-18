@@ -33,6 +33,7 @@ class Watcher:
         self.pool: asqlite.Pool = pool
         self.tracker = Tracker(watcher=self)
         self._users: dict[str, NetworkUser] = {}
+        self._seen_devices: dict[str, str] = {}
 
     async def setup(self) -> Watcher:
         """
@@ -54,6 +55,24 @@ class Watcher:
         )
 
         _log.info("Watcher setup completed successfully.")
+
+    def set_seen_devices(self, devices: dict[str, str]) -> None:
+        """
+        Sets the current cache of seen devices.
+
+        Args:
+            devices (dict[str, str]): A mapping of IP address to MAC address.
+        """
+        self._seen_devices = devices
+
+    def get_seen_device(self, address: str) -> str:
+        """
+        Retreives a seen device from cache.
+
+        Returns:
+            str: The respective MAC address.
+        """
+        return self._seen_devices.get(address)
 
     async def _populate_users(self) -> dict[str, NetworkUser]:
         """

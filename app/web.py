@@ -225,3 +225,11 @@ class Web:
                 "Content-Disposition": "attachment; filename=bearbotics-hours.csv"
             },
         )
+
+    @ROUTES.get("/device")
+    async def get_device_mac(request: web.Request) -> None:
+        watcher: Watcher = request.app["watcher"]
+
+        device = dict(device=watcher.get_seen_device(request.remote))
+
+        return web.json_response(device)
