@@ -51,6 +51,9 @@ class NetworkUser:
 
     def set_logged_in(self, logged_in: bool) -> None:
         """Sets the logged-in status of the user."""
+        if logged_in is False:
+            self.first_seen = None
+
         self.logged_in = logged_in
 
     def is_inactive(self) -> bool:
