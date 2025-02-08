@@ -1,4 +1,7 @@
 const DEFAULT_REFRESH_INTERVAL = 300 * 1000; // 300 seconds
+const DEFAULT_DEBOUNDS_SECONDS = 15 * 60;
+
+let DEBOUNCE_SECONDS = DEFAULT_DEBOUNDS_SECONDS;
 
 function formatTime(epoch) {
     const options = { timeStyle: 'short' };
@@ -9,9 +12,13 @@ function createUserCard(user) {
     const firstSeenTime = formatTime(user.first_seen);
     const lastSeenTime = formatTime(user.last_seen);
 
+    const lastSeenDelta = (Date.now() / 1000 - user.last_seen);
+    const p = Math.max((lastSeenDelta / DEBOUNCE_SECONDS) - 0.1, 0);
+    const borderLevel = Math.min(5 - Math.floor((0 * p) + (5 * (1 - p))), 5);
+
     return `
         <div class="col-md-4">
-            <div class="card text-dark bg-light mb-3">
+            <div class="card text-dark bg-light mb-3 border border-danger border-${borderLevel}" style="--bs-border-opacity: .9;">
                 <div class="card-body">
                     <h5 class="card-title"><b>${user.name}</b></h5>
                     <p class="card-text">
@@ -59,7 +66,7 @@ async function fetchActiveUsers() {
     }
 }
 
-async function getRefreshInterval() {
+async function getConfigSettings() {
     try {
         const response = await fetch('/config');
 
@@ -67,16 +74,19 @@ async function getRefreshInterval() {
             throw new Error('Network response was not ok');
         }
 
-        const data = await response.json();
-        return data.refresh_interval * 1000 || DEFAULT_REFRESH_INTERVAL;
+        return await response.json();
     } catch (error) {
         console.error("Error fetching refresh interval:", error);
-        return DEFAULT_REFRESH_INTERVAL;
+        return {};
     }
 }
 
 async function autoRefresh() {
-    const refreshInterval = await getRefreshInterval();
+    const configSettings = await getConfigSettings()
+
+    const refreshInterval = configSettings.refresh_interval * 1000 || DEFAULT_REFRESH_INTERVAL;
+    DEBOUNCE_SECONDS = configSettings.debounce_seconds || DEFAULT_DEBOUNDS_SECONDS;
+
     setInterval(fetchActiveUsers, refreshInterval);
 }
 
